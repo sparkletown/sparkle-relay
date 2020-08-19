@@ -2,9 +2,6 @@
   "name": "websocket-relay",
   "version": "0.1.0",
   "devDependencies": {
-    "@types/node": "^14.0.27",
-    "@types/redis": "^2.8.25",
-    "@types/sockjs": "^0.3.32",
     "@typescript-eslint/eslint-plugin": "^3.9.0",
     "@typescript-eslint/parser": "^3.9.0",
     "eslint": "^7.6.0",
@@ -18,6 +15,9 @@
     "prettier": "^2.0.5"
   },
   "dependencies": {
+    "@types/node": "^14.0.27",
+    "@types/redis": "^2.8.25",
+    "@types/sockjs": "^0.3.32",
     "redis": "^3.0.2",
     "rimraf": "^3.0.2",
     "sockjs": "^0.3.21",
