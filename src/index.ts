@@ -3,8 +3,12 @@ import sockjs from "sockjs";
 import redis from "redis";
 
 // Setup Redis pub/sub. Need two Redis clients, as the one that subscribes can't also publish.
-const pub = redis.createClient();
-const sub = redis.createClient();
+const pub = process.env.REDIS_URL
+  ? redis.createClient({ url: process.env.REDIS_URL })
+  : redis.createClient();
+const sub = process.env.REDIS_URL
+  ? redis.createClient({ url: process.env.REDIS_URL })
+  : redis.createClient();
 sub.subscribe("global");
 
 type Connection = {
