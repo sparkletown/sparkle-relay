@@ -80,4 +80,4 @@ handler.on("connection", function (conn) {
 // Begin listening.
 var server = http.createServer();
 handler.installHandlers(server, { prefix: "/sockjs" });
-server.listen(80);
+server.listen(process.env.PORT || 8080);
