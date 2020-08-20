@@ -22,6 +22,7 @@ type UserState = {
   x: number;
   y: number;
   speaking: boolean;
+  reserved?: string;
 };
 
 type UserStateMap = { [uid: string]: UserState };
