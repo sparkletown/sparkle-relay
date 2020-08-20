@@ -18,11 +18,12 @@
     "@types/node": "^14.0.27",
     "@types/redis": "^2.8.25",
     "@types/sockjs": "^0.3.32",
+    "@types/ws": "^7.2.6",
     "redis": "^3.0.2",
     "rimraf": "^3.0.2",
-    "sockjs": "^0.3.21",
     "ts-node": "^8.10.2",
-    "typescript": "^3.9.7"
+    "typescript": "^3.9.7",
+    "ws": "^7.3.1"
   },
   "scripts": {
     "dev": "nodemon",

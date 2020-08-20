@@ -1,5 +1,5 @@
 import http from "http";
-import sockjs from "sockjs";
+import ws from "ws";
 import redis from "redis";
 
 const DATA_KEY = "data";
@@ -14,7 +14,7 @@ const sub = process.env.REDIS_URL
 sub.subscribe("global");
 
 type Connection = {
-  conn: sockjs.Connection;
+  conn: ws;
   uid?: string;
 };
 
@@ -54,8 +54,10 @@ type PubsubMessage = {
   update: UserState;
 };
 
-const clients: { [id: string]: Connection } = {};
-const handler = sockjs.createServer();
+const clients: Connection[] = [];
+
+var server = http.createServer();
+const handler = new ws.Server({ server });
 
 // Listen for messages being published to this server.
 sub.on("message", function (_, data) {
@@ -67,10 +69,10 @@ sub.on("message", function (_, data) {
     };
 
     // Broadcast to all connected clients
-    for (const conn of Object.values(clients)) {
+    for (const conn of clients) {
       // Require hello, which sets uid
       if (conn.uid) {
-        conn.conn.write(JSON.stringify(msg));
+        conn.conn.send(JSON.stringify(msg));
       }
     }
   } catch (err) {
@@ -79,67 +81,79 @@ sub.on("message", function (_, data) {
 });
 
 handler.on("connection", function (conn) {
-  clients[conn.id] = { conn };
+  try {
+    clients.push({ conn });
 
-  conn.on("data", function (data) {
-    try {
-      const client = clients[conn.id];
-      const parsed = JSON.parse(data);
-      switch (parsed.type) {
-        case MessageType.Hello:
-          const helloMsg = parsed as HelloWsMessage;
-          if (client.uid) {
-            throw new Error("Cannot hello twice");
-          }
-          // Basic verification: set the uid for this conn (also marks it as Hello'd)
-          client.uid = helloMsg.uid;
-          // Broadcast all known locations
-          pub.get(DATA_KEY, (_, allDataStr) => {
-            const allData = JSON.parse(allDataStr ?? "{}") as UserStateMap;
-            const msg: BroadcastMessage = {
-              type: MessageType.Broadcast,
-              updates: allData,
-            };
-            conn.write(JSON.stringify(msg));
-          });
-          break;
-        case MessageType.Update:
-          const updateMsg = parsed as UpdateWsMessage;
-          if (!client.uid) {
-            throw new Error("Must Hello first");
-          }
-          if (updateMsg.uid !== client.uid) {
-            throw new Error("UID mismatch");
-          }
-          // Persist state and broadcast it
-          pub.get(DATA_KEY, (_, allDataStr) => {
-            const allData = JSON.parse(allDataStr ?? "{}") as UserStateMap;
+    conn.on("message", function (data) {
+      try {
+        const client = clients.find((client) => client.conn === conn);
+        if (!client) {
+          throw new Error(`Cannot find client with conn ${conn}`);
+        }
+        const parsed = JSON.parse(data.toString());
+        switch (parsed.type) {
+          case MessageType.Hello:
+            const helloMsg = parsed as HelloWsMessage;
             if (client.uid) {
-              allData[client.uid] = updateMsg.update;
+              throw new Error("Cannot hello twice");
             }
-            pub.set(DATA_KEY, JSON.stringify(allData));
-            const broadcastMsg: PubsubMessage = {
-              uid: updateMsg.uid,
-              update: updateMsg.update,
-            };
-            // Broadcast via pubsub
-            pub.publish("global", JSON.stringify(broadcastMsg));
-          });
-          break;
+            // Basic verification: set the uid for this conn (also marks it as Hello'd)
+            client.uid = helloMsg.uid;
+            // Broadcast all known locations
+            pub.get(DATA_KEY, (_, allDataStr) => {
+              const allData = JSON.parse(allDataStr ?? "{}") as UserStateMap;
+              const msg: BroadcastMessage = {
+                type: MessageType.Broadcast,
+                updates: allData,
+              };
+              conn.send(JSON.stringify(msg));
+            });
+            break;
+          case MessageType.Update:
+            const updateMsg = parsed as UpdateWsMessage;
+            if (!client.uid) {
+              throw new Error("Must Hello first");
+            }
+            if (updateMsg.uid !== client.uid) {
+              throw new Error("UID mismatch");
+            }
+            // Persist state and broadcast it
+            pub.get(DATA_KEY, (_, allDataStr) => {
+              const allData = JSON.parse(allDataStr ?? "{}") as UserStateMap;
+              if (client.uid) {
+                allData[client.uid] = updateMsg.update;
+              }
+              pub.set(DATA_KEY, JSON.stringify(allData));
+              const broadcastMsg: PubsubMessage = {
+                uid: updateMsg.uid,
+                update: updateMsg.update,
+              };
+              // Broadcast via pubsub
+              pub.publish("global", JSON.stringify(broadcastMsg));
+            });
+            break;
+          default:
+            throw new Error(`Invalid message ${data}`);
+        }
+      } catch (err) {
+        console.error(`Error ${err} in onData(${data}); closing connection`);
+        conn.send(`Error ${err} in onData(${data}); closing connection`);
+        conn.close();
       }
-    } catch (err) {
-      console.error(`Error ${err} in onData(${data}); closing connection`);
-      conn.write(`Error ${err} in onData(${data}); closing connection`);
-      conn.close();
-    }
-  });
+    });
+  } catch (err) {
+    console.error(`Error ${err} in onConnection(); closing connection`);
+    conn.send(`Error ${err} in onConnection(); closing connection`);
+    conn.close();
+  }
 
   conn.on("close", function () {
-    delete clients[conn.id];
+    const closedIndex = clients.findIndex((client) => client.conn === conn);
+    if (closedIndex >= 0) {
+      clients.splice(closedIndex);
+    }
   });
 });
 
 // Begin listening.
-var server = http.createServer();
-handler.installHandlers(server, { prefix: "/" });
 server.listen(process.env.PORT || 8080);
