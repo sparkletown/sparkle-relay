@@ -16,12 +16,12 @@ const rotateY = (y: number, rad: number) => {
 };
 
 const randomStartLocation: () => { x: number; y: number } = () => {
-  const xRotated =
-    Math.floor(Math.random() * START_ZONE.width) *
-    Math.cos(START_ZONE.rotateRad);
-  const yRotated =
-    Math.floor(Math.random() * START_ZONE.height) *
-    Math.sin(START_ZONE.rotateRad);
+  const xRotated = Math.floor(
+    Math.random() * START_ZONE.width * Math.cos(START_ZONE.rotateRad)
+  );
+  const yRotated = Math.floor(
+    Math.random() * START_ZONE.height * Math.sin(START_ZONE.rotateRad)
+  );
   return { x: xRotated + START_ZONE.x, y: yRotated + START_ZONE.y };
 };
 
@@ -106,6 +106,7 @@ handler.on("connection", function (conn) {
     clients.push({ conn });
 
     conn.on("message", function (data) {
+      console.log("message", data);
       try {
         const client = clients.find((client) => client.conn === conn);
         if (!client) {
