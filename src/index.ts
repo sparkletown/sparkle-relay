@@ -10,6 +10,8 @@ const START_ZONE = {
   height: 170,
   rotateRad: 0.314159, // 18 degrees, roughly the city's offset
 };
+const MAX_X = 4000;
+const MAX_Y = 4000;
 
 const rotateY = (y: number, rad: number) => {
   return y * Math.cos(rad);
@@ -160,6 +162,15 @@ handler.on("connection", function (conn) {
             }
             if (updateMsg.uid !== client.uid) {
               throw new Error("UID mismatch");
+            }
+            if (
+              updateMsg.update.x < 0 ||
+              updateMsg.update.x >= MAX_X ||
+              updateMsg.update.y < 0 ||
+              updateMsg.update.y >= MAX_Y
+            ) {
+              console.log("coordinates out of bounds; discarding", updateMsg);
+              break;
             }
             // Persist state and broadcast it
             pub.get(DATA_KEY, (_, allDataStr) => {
