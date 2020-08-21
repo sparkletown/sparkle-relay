@@ -3,6 +3,27 @@ import ws from "ws";
 import redis from "redis";
 
 const DATA_KEY = "data";
+const START_ZONE = {
+  x: 1150,
+  y: 3630,
+  width: 520,
+  height: 170,
+  rotateRad: 0.314159, // 18 degrees, roughly the city's offset
+};
+
+const rotateY = (y: number, rad: number) => {
+  return y * Math.cos(rad);
+};
+
+const randomStartLocation: () => { x: number; y: number } = () => {
+  const xRotated =
+    Math.floor(Math.random() * START_ZONE.width) *
+    Math.cos(START_ZONE.rotateRad);
+  const yRotated =
+    Math.floor(Math.random() * START_ZONE.height) *
+    Math.sin(START_ZONE.rotateRad);
+  return { x: xRotated + START_ZONE.x, y: yRotated + START_ZONE.y };
+};
 
 // Setup Redis pub/sub. Need two Redis clients, as the one that subscribes can't also publish.
 const pub = process.env.REDIS_URL
@@ -97,16 +118,38 @@ handler.on("connection", function (conn) {
             if (client.uid) {
               throw new Error("Cannot hello twice");
             }
-            // Basic verification: set the uid for this conn (also marks it as Hello'd)
-            client.uid = helloMsg.uid;
-            // Broadcast all known locations
+
+            // Respond with all known locations
             pub.get(DATA_KEY, (_, allDataStr) => {
               const allData = JSON.parse(allDataStr ?? "{}") as UserStateMap;
+              if (!(helloMsg.uid in allData)) {
+                const { x, y } = randomStartLocation();
+                const initialUserState: UserState = {
+                  x,
+                  y,
+                  speaking: false,
+                };
+
+                // Relay initial state to all other connected clients
+                const relayMsg: PubsubMessage = {
+                  uid: helloMsg.uid,
+                  update: initialUserState,
+                };
+                pub.publish("global", JSON.stringify(relayMsg));
+
+                // Ensure initial state is sent to the client who Hello'd
+                allData[helloMsg.uid] = initialUserState;
+              }
+
+              // Respond with all known locations
               const msg: BroadcastMessage = {
                 type: MessageType.Broadcast,
                 updates: allData,
               };
               conn.send(JSON.stringify(msg));
+
+              // Basic verification: set the uid for this conn (also marks it as Hello'd)
+              client.uid = helloMsg.uid;
             });
             break;
           case MessageType.Update:
@@ -124,12 +167,12 @@ handler.on("connection", function (conn) {
                 allData[client.uid] = updateMsg.update;
               }
               pub.set(DATA_KEY, JSON.stringify(allData));
-              const broadcastMsg: PubsubMessage = {
+              const relayMsg: PubsubMessage = {
                 uid: updateMsg.uid,
                 update: updateMsg.update,
               };
               // Broadcast via pubsub
-              pub.publish("global", JSON.stringify(broadcastMsg));
+              pub.publish("global", JSON.stringify(relayMsg));
             });
             break;
           default:
