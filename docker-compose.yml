@@ -2,6 +2,8 @@ version: "3"
 services:
   redis-server:
     image: "redis"
+    volumes:
+      - ${PWD}/redis-data-${ENV}:/var/lib/redis
   node-app:
     build: .
     ports:

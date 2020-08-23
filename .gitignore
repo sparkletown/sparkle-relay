@@ -38,3 +38,6 @@ ui-debug.log
 reporting/env
 reporting/*.pdf
 reporting/cookies.json
+
+# Persistent redis data
+redis-data-*
