@@ -44,8 +44,8 @@ type Connection = {
 type UserState = {
   x: number;
   y: number;
-  speaking: boolean;
-  reserved?: string;
+  speaking?: boolean;
+  state?: { [key: string]: string };
 };
 
 type UserStateMap = { [uid: string]: UserState };
