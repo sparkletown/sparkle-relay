@@ -210,5 +210,11 @@ handler.on("connection", function (conn) {
   });
 });
 
+process.on("uncaughtException", (err) => {
+  console.error(new Date().toUTCString() + " uncaughtException:", err.message);
+  console.error(err.stack);
+  process.exit(1);
+});
+
 // Begin listening.
 server.listen(process.env.PORT || 8080);
