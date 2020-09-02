@@ -36,11 +36,6 @@ const sub = process.env.REDIS_URL
   : redis.createClient();
 sub.subscribe("global");
 
-type Connection = {
-  conn: ws;
-  uid?: string;
-};
-
 type UserState = {
   x: number;
   y: number;
@@ -77,7 +72,7 @@ type PubsubMessage = {
   update: UserState;
 };
 
-const clients: Connection[] = [];
+const clients: ws[] = [];
 
 var server = http.createServer();
 const handler = new ws.Server({ server });
@@ -93,10 +88,7 @@ sub.on("message", function (_, data) {
 
     // Broadcast to all connected clients
     for (const conn of clients) {
-      // Require hello, which sets uid
-      if (conn.uid) {
-        conn.conn.send(JSON.stringify(msg));
-      }
+      conn.send(JSON.stringify(msg));
     }
   } catch (err) {
     console.error(`Error ${err} in onMessage(${data}); continuing`);
@@ -105,7 +97,7 @@ sub.on("message", function (_, data) {
 
 handler.on("connection", function (conn) {
   try {
-    clients.push({ conn });
+    clients.push(conn);
 
     conn.on("message", function (data) {
       console.log("message", data);
@@ -185,7 +177,7 @@ handler.on("connection", function (conn) {
   }
 
   conn.on("close", function () {
-    const closedIndex = clients.findIndex((client) => client.conn === conn);
+    const closedIndex = clients.findIndex((client) => client === conn);
     if (closedIndex >= 0) {
       clients.splice(closedIndex);
     }
