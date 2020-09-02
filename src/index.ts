@@ -110,17 +110,10 @@ handler.on("connection", function (conn) {
     conn.on("message", function (data) {
       console.log("message", data);
       try {
-        const client = clients.find((client) => client.conn === conn);
-        if (!client) {
-          throw new Error(`Cannot find client with conn ${conn}`);
-        }
         const parsed = JSON.parse(data.toString());
         switch (parsed.type) {
           case MessageType.Hello:
             const helloMsg = parsed as HelloWsMessage;
-            if (client.uid) {
-              throw new Error("Cannot hello twice");
-            }
 
             // Respond with all known locations
             pub.get(DATA_KEY, (_, allDataStr) => {
@@ -150,19 +143,10 @@ handler.on("connection", function (conn) {
                 updates: allData,
               };
               conn.send(JSON.stringify(msg));
-
-              // Basic verification: set the uid for this conn (also marks it as Hello'd)
-              client.uid = helloMsg.uid;
             });
             break;
           case MessageType.Update:
             const updateMsg = parsed as UpdateWsMessage;
-            if (!client.uid) {
-              throw new Error("Must Hello first");
-            }
-            if (updateMsg.uid !== client.uid) {
-              throw new Error("UID mismatch");
-            }
             if (
               updateMsg.update.x < 0 ||
               updateMsg.update.x >= MAX_X ||
@@ -175,9 +159,7 @@ handler.on("connection", function (conn) {
             // Persist state and broadcast it
             pub.get(DATA_KEY, (_, allDataStr) => {
               const allData = JSON.parse(allDataStr ?? "{}") as UserStateMap;
-              if (client.uid) {
-                allData[client.uid] = updateMsg.update;
-              }
+              allData[updateMsg.uid] = updateMsg.update;
               pub.set(DATA_KEY, JSON.stringify(allData));
               const relayMsg: PubsubMessage = {
                 uid: updateMsg.uid,
