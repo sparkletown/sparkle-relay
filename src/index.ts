@@ -91,7 +91,6 @@ handler.on("connection", function (conn) {
     clients.push(conn);
 
     conn.on("message", function (data) {
-      console.log("message", data);
       try {
         const parsed = JSON.parse(data.toString());
         switch (parsed.type) {
@@ -136,7 +135,7 @@ handler.on("connection", function (conn) {
               updateMsg.update.y < 0 ||
               updateMsg.update.y >= MAX_Y
             ) {
-              console.log("coordinates out of bounds; discarding", updateMsg);
+              console.error("coordinates out of bounds; discarding", updateMsg);
               break;
             }
             // Persist state and broadcast it
