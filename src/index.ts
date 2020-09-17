@@ -4,27 +4,18 @@ import redis from "redis";
 
 const DATA_KEY = "data";
 const START_ZONE = {
-  x: 1150,
-  y: 3630,
-  width: 520,
-  height: 170,
-  rotateRad: 0.314159, // 18 degrees, roughly the city's offset
+  x: 0,
+  y: 0,
+  width: 200,
+  height: 200,
 };
-const MAX_X = 4000;
-const MAX_Y = 4000;
-
-const rotateY = (y: number, rad: number) => {
-  return y * Math.cos(rad);
-};
+const MAX_X = 2000;
+const MAX_Y = 2000;
 
 const randomStartLocation: () => { x: number; y: number } = () => {
-  const xRotated = Math.floor(
-    Math.random() * START_ZONE.width * Math.cos(START_ZONE.rotateRad)
-  );
-  const yRotated = Math.floor(
-    Math.random() * START_ZONE.height * Math.sin(START_ZONE.rotateRad)
-  );
-  return { x: xRotated + START_ZONE.x, y: yRotated + START_ZONE.y };
+  const x = START_ZONE.x + Math.floor(Math.random() * START_ZONE.width);
+  const y = START_ZONE.y + Math.floor(Math.random() * START_ZONE.height);
+  return { x, y };
 };
 
 // Setup Redis pub/sub. Need two Redis clients, as the one that subscribes can't also publish.
